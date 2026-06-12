@@ -128,6 +128,48 @@
     },
   ];
 
+  const TRUST_RULES = [
+    {
+      id: "official_or_clear_domain",
+      points: -10,
+      keywords: ["google.com", "hackerrank.com", "microsoft.com", "github.com", "linkedin.com", "vercel.com"],
+      describe: (kw) =>
+        `Mentions a recognizable domain (${kw}). This is only a weak trust signal and does not prove the email is genuine.`,
+    },
+    {
+      id: "no_payment_required",
+      points: -15,
+      keywords: [
+        "no payment required",
+        "no fees",
+        "free to register",
+        "free registration",
+        "no charges",
+        "no registration fee",
+      ],
+      describe: (kw) => `States that no payment or registration fee is required ("${kw}").`,
+    },
+    {
+      id: "clear_program_details",
+      points: -5,
+      keywords: [
+        "eligibility",
+        "selection process",
+        "timeline",
+        "program details",
+        "official website",
+        "terms and conditions",
+      ],
+      describe: (kw) => `Includes clearer program or verification details ("${kw}").`,
+    },
+    {
+      id: "interview_or_evaluation_based",
+      points: -5,
+      keywords: ["interview", "assessment", "coding test", "shortlisted after review", "evaluation"],
+      describe: (kw) => `Mentions an interview, assessment, or review-based selection step ("${kw}").`,
+    },
+  ];
+
   /* ---------------------------------------------------
      2. Sample emails (also saved under sample-emails/*.txt)
      --------------------------------------------------- */
@@ -194,7 +236,7 @@ Clinch Cloud Workforce`,
      --------------------------------------------------- */
   function analyzeEmail(rawText) {
     const text = rawText.toLowerCase();
-    let score = 0;
+    let riskScore = 0;
     const flags = [];
     const hitIds = new Set();
 
@@ -202,44 +244,95 @@ Clinch Cloud Workforce`,
       if (rule.test) {
         const result = rule.test(rawText, text);
         if (result) {
-          score += rule.weight;
+          riskScore += rule.weight;
           hitIds.add(rule.id);
           flags.push({ text: result, severity: rule.severity });
         }
         return;
       }
 
-      const matched = rule.keywords.find((kw) => text.includes(kw));
+      const matched = rule.keywords.find((kw) => text.includes(kw) && !isNegatedRiskKeyword(rule.id, kw, text));
       if (matched) {
-        score += rule.weight;
+        riskScore += rule.weight;
         hitIds.add(rule.id);
         flags.push({ text: rule.describe(matched), severity: rule.severity });
       }
     });
 
-    score = Math.min(100, score);
+    riskScore = clampScore(riskScore);
 
-    let verdict;
-    if (score >= 70) verdict = "High Risk";
-    else if (score >= 31) verdict = "Suspicious";
-    else verdict = "Safe";
+    const trustSignals = [];
+    const trustAdjustment = TRUST_RULES.reduce((total, rule) => {
+      const matched = rule.keywords.find((kw) => text.includes(kw));
+      if (!matched) return total;
+
+      trustSignals.push({
+        text: rule.describe(matched),
+        points: rule.points,
+      });
+      return total + rule.points;
+    }, 0);
+
+    let score = clampScore(riskScore + trustAdjustment);
+
+    if (hitIds.has("payment") && hitIds.has("instructions")) {
+      score = Math.max(score, 70);
+    } else if (hitIds.has("payment")) {
+      score = Math.max(score, 55);
+    }
+
+    score = clampScore(score);
+    const verdict = getVerdict(score);
 
     return {
       score,
+      rawRiskScore: riskScore,
+      trustAdjustment,
       verdict,
       flags,
-      hitIds,
-      summary: buildSummary(verdict, hitIds),
+      hitIds: Array.from(hitIds),
+      trustSignals,
+      summary: buildSummary(verdict, hitIds, trustSignals),
       nextSteps: buildNextSteps(verdict, hitIds),
       reply: buildReply(),
     };
   }
 
-  function buildSummary(verdict, hitIds) {
-    if (verdict === "Safe") {
-      return "This email doesn't show the common red flags of internship scams - no payment requests, vague onboarding, or unrealistic promises were detected. It's still worth double-checking the company independently before sharing personal documents.";
-    }
+  function isNegatedRiskKeyword(ruleId, keyword, text) {
+    if (ruleId !== "payment") return false;
 
+    const noPaymentPhrases = [
+      "no payment required",
+      "no fees",
+      "free to register",
+      "free registration",
+      "no charges",
+      "no registration fee",
+      "no internship fee",
+      "no training fee",
+      "no certificate fee",
+      "no enrollment fee",
+      "no enrolment fee",
+      "no processing fee",
+      "no confirmation fee",
+      "no security deposit",
+      "no refundable deposit",
+    ];
+
+    return noPaymentPhrases.some((phrase) => phrase.includes(keyword) && text.includes(phrase));
+  }
+
+  function clampScore(value) {
+    return Math.max(0, Math.min(100, Math.round(value)));
+  }
+
+  function getVerdict(score) {
+    if (score >= 70) return "High Risk";
+    if (score >= 31) return "Needs Verification";
+    return "Low Risk";
+  }
+
+  function buildSummary(verdict, hitIds, trustSignals) {
     const reasons = [];
     if (hitIds.has("payment")) reasons.push("asks you to pay before onboarding");
     if (hitIds.has("instructions")) reasons.push("gives suspicious instructions, like sending a payment screenshot");
@@ -248,25 +341,53 @@ Clinch Cloud Workforce`,
     if (hitIds.has("links")) reasons.push("uses a shortened or generic link instead of the company's own domain");
     if (hitIds.has("poor_language")) reasons.push("has the generic tone and wording typical of mass-sent offers");
 
-    const joined =
-      reasons.length > 1
-        ? reasons.slice(0, -1).join(", ") + ", and " + reasons[reasons.length - 1]
-        : reasons[0];
+    const redFlagText =
+      reasons.length > 0
+        ? ` Red flags found: ${joinAsSentence(reasons)}.`
+        : " No major red flags were detected by the rule-based scan.";
+    const trustText =
+      trustSignals.length > 0
+        ? ` Trust signals found: ${trustSignals.length}. These only lower the score slightly and never prove an email is genuine.`
+        : " No strong trust signals were found.";
 
-    if (verdict === "High Risk") {
-      return `This email looks high risk because it ${joined}. Treat it as a likely scam - don't send money, documents, or OTPs.`;
+    if (verdict === "Low Risk") {
+      return `This email shows low-risk signals, but still verify through official channels.${redFlagText}${trustText}`;
     }
-    return `This email looks suspicious because it ${joined}. Verify carefully before you respond, click any link, or share information.`;
+    if (verdict === "Needs Verification") {
+      return `This email has some unclear or risky patterns and should be verified before acting.${redFlagText}${trustText}`;
+    }
+    if (verdict === "High Risk") {
+      return `This email contains strong risk patterns. Do not pay or share sensitive information.${redFlagText}${trustText}`;
+    }
+
+    return `This email should be verified before acting.${redFlagText}${trustText}`;
+  }
+
+  function joinAsSentence(items) {
+    if (items.length <= 1) return items[0] || "";
+    return items.slice(0, -1).join(", ") + ", and " + items[items.length - 1];
   }
 
   function buildNextSteps(verdict, hitIds) {
     const steps = [];
 
-    if (verdict === "Safe") {
-      steps.push("Still confirm the recruiter and company on LinkedIn before sharing personal documents.");
-      steps.push("Ask for an official offer letter and onboarding plan in writing.");
+    if (verdict === "Low Risk") {
+      steps.push("Verify the sender through the official company site or a clear company-owned domain.");
+      steps.push("Check the company's verified LinkedIn or careers page before sharing personal documents.");
       steps.push("Keep a copy of all communication until your internship is confirmed.");
       return steps;
+    }
+
+    if (verdict === "Needs Verification") {
+      steps.push("Check the sender domain, official website, and verified LinkedIn page before replying.");
+      steps.push("Ask for written confirmation that no payment, fee, or deposit is required.");
+      steps.push("Request the selection process, role details, stipend, and onboarding timeline in writing.");
+    }
+
+    if (verdict === "High Risk") {
+      steps.push("Do not pay any registration, training, certificate, enrollment, or refundable deposit fee.");
+      steps.push("Do not share bank details, UPI PIN, OTP, Aadhaar, card numbers, or sensitive documents.");
+      steps.push("Verify the opportunity independently through the official company website or verified company contact.");
     }
 
     if (hitIds.has("payment")) {
@@ -286,7 +407,7 @@ Clinch Cloud Workforce`,
     }
 
     steps.push('Search the company name along with "reviews" or "scam" before replying.');
-    steps.push("Never share bank details, UPI PIN, OTP, Aadhaar, or card numbers with a recruiter.");
+    steps.push("If anything feels unclear, contact the company through a public official channel instead of the email thread.");
 
     return steps;
   }
@@ -312,10 +433,13 @@ Clinch Cloud Workforce`,
     verdictBadge: document.getElementById("verdict-badge"),
     resultSummary: document.getElementById("result-summary"),
     flagList: document.getElementById("flag-list"),
+    trustList: document.getElementById("trust-list"),
     stepsList: document.getElementById("steps-list"),
     replyBox: document.getElementById("reply-box"),
     copyReplyBtn: document.getElementById("copy-reply-btn"),
     copyReportBtn: document.getElementById("copy-report-btn"),
+    aiReviewBtn: document.getElementById("ai-review-btn"),
+    aiReviewBox: document.getElementById("ai-review-box"),
 
     historyList: document.getElementById("history-list"),
     historyEmpty: document.getElementById("history-empty"),
@@ -324,13 +448,13 @@ Clinch Cloud Workforce`,
 
   const GAUGE_CIRCUMFERENCE = 314.16;
   const VERDICT_COLORS = {
-    Safe: "var(--safe)",
-    Suspicious: "var(--suspicious)",
+    "Low Risk": "var(--safe)",
+    "Needs Verification": "var(--suspicious)",
     "High Risk": "var(--risk)",
   };
   const VERDICT_CLASSES = {
-    Safe: "safe",
-    Suspicious: "suspicious",
+    "Low Risk": "safe",
+    "Needs Verification": "needs-verification",
     "High Risk": "high-risk",
   };
 
@@ -338,6 +462,7 @@ Clinch Cloud Workforce`,
   const MAX_HISTORY = 12;
 
   let lastResult = null;
+  let lastEmailText = "";
 
   /* --- Char count --- */
   els.input.addEventListener("input", () => {
@@ -374,6 +499,7 @@ Clinch Cloud Workforce`,
 
     const result = analyzeEmail(raw);
     lastResult = result;
+    lastEmailText = raw;
     renderResult(result);
     saveToHistory(raw, result);
     renderHistory();
@@ -415,6 +541,21 @@ Clinch Cloud Workforce`,
       });
     }
 
+    // Trust signals
+    els.trustList.innerHTML = "";
+    if (result.trustSignals.length === 0) {
+      const li = document.createElement("li");
+      li.textContent = "No strong trust signals detected.";
+      li.classList.add("trust-none");
+      els.trustList.appendChild(li);
+    } else {
+      result.trustSignals.forEach((signal) => {
+        const li = document.createElement("li");
+        li.textContent = signal.text;
+        els.trustList.appendChild(li);
+      });
+    }
+
     // Steps
     els.stepsList.innerHTML = "";
     result.nextSteps.forEach((step) => {
@@ -426,10 +567,128 @@ Clinch Cloud Workforce`,
     // Reply
     els.replyBox.textContent = result.reply;
 
+    resetAiReview();
+
     els.resultContent.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
+  function resetAiReview() {
+    if (!els.aiReviewBox) return;
+    els.aiReviewBox.hidden = true;
+    els.aiReviewBox.classList.remove("ai-review-error", "ai-review-loading");
+    els.aiReviewBox.textContent = "";
+  }
+
+  function setAiReviewLoading() {
+    els.aiReviewBox.hidden = false;
+    els.aiReviewBox.classList.remove("ai-review-error");
+    els.aiReviewBox.classList.add("ai-review-loading");
+    els.aiReviewBox.textContent = "Checking whether optional AI review is available...";
+  }
+
+  async function requestAiAnalysis(emailText, ruleResult) {
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          emailText,
+          ruleResult: serializeRuleResult(ruleResult),
+        }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok || !contentType.includes("application/json")) {
+        return buildAiUnavailableReview();
+      }
+
+      const data = await response.json();
+      return {
+        aiSummary: data.aiSummary || "AI review did not return a summary.",
+        verificationChecklist: Array.isArray(data.verificationChecklist) ? data.verificationChecklist : [],
+        finalAdvice:
+          data.finalAdvice ||
+          "Use the rule-based result above as the main safety signal and verify through official channels.",
+      };
+    } catch (error) {
+      return buildAiUnavailableReview();
+    }
+  }
+
+  function serializeRuleResult(result) {
+    return {
+      score: result.score,
+      rawRiskScore: result.rawRiskScore,
+      trustAdjustment: result.trustAdjustment,
+      verdict: result.verdict,
+      flags: result.flags,
+      trustSignals: result.trustSignals,
+      summary: result.summary,
+      nextSteps: result.nextSteps,
+    };
+  }
+
+  function buildAiUnavailableReview() {
+    return {
+      error: true,
+      aiSummary:
+        "Optional AI review is not configured yet or could not be reached. The rule-based scan above still works fully in your browser.",
+      verificationChecklist: [
+        "Verify the sender domain against the official company website.",
+        "Check the company's verified LinkedIn or careers page.",
+        "Ask for written confirmation that no payment or deposit is required.",
+      ],
+      finalAdvice: "Do not rely on AI alone. Treat the rule-based result and independent verification as the main safety checks.",
+    };
+  }
+
+  function renderAiReview(review) {
+    els.aiReviewBox.hidden = false;
+    els.aiReviewBox.classList.remove("ai-review-loading");
+    els.aiReviewBox.classList.toggle("ai-review-error", Boolean(review.error));
+    els.aiReviewBox.innerHTML = "";
+
+    const summary = document.createElement("p");
+    summary.textContent = review.aiSummary;
+    els.aiReviewBox.appendChild(summary);
+
+    if (review.verificationChecklist.length > 0) {
+      const heading = document.createElement("h5");
+      heading.textContent = "Verification checklist";
+      els.aiReviewBox.appendChild(heading);
+
+      const list = document.createElement("ul");
+      review.verificationChecklist.forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        list.appendChild(li);
+      });
+      els.aiReviewBox.appendChild(list);
+    }
+
+    const advice = document.createElement("p");
+    advice.className = "ai-final-advice";
+    advice.textContent = review.finalAdvice;
+    els.aiReviewBox.appendChild(advice);
+  }
+
   /* --- Copy buttons --- */
+  if (els.aiReviewBtn) {
+    els.aiReviewBtn.addEventListener("click", async () => {
+      if (!lastResult || !lastEmailText) return;
+
+      setAiReviewLoading();
+      els.aiReviewBtn.disabled = true;
+
+      const review = await requestAiAnalysis(lastEmailText, lastResult);
+      renderAiReview(review);
+
+      els.aiReviewBtn.disabled = false;
+    });
+  }
+
   els.copyReplyBtn.addEventListener("click", () => {
     if (!lastResult) return;
     copyText(lastResult.reply, els.copyReplyBtn, "Copy reply");
@@ -450,7 +709,10 @@ Clinch Cloud Workforce`,
       "Red flags:",
       r.flags.length ? r.flags.map((f) => `- ${f.text}`).join("\n") : "- None detected",
       "",
-      "Safe next steps:",
+      "Trust signals:",
+      r.trustSignals.length ? r.trustSignals.map((s) => `- ${s.text}`).join("\n") : "- No strong trust signals detected",
+      "",
+      "Recommended next steps:",
       r.nextSteps.map((s) => `- ${s}`).join("\n"),
       "",
       "Suggested reply:",
@@ -511,13 +773,14 @@ Clinch Cloud Workforce`,
     els.historyEmpty.hidden = true;
 
     history.forEach((entry) => {
+      const verdict = normalizeVerdict(entry.verdict);
       const card = document.createElement("div");
       card.className = "history-card";
 
       const score = document.createElement("div");
       score.className = "history-score";
       score.textContent = entry.score;
-      score.style.color = VERDICT_COLORS[entry.verdict] || "var(--ink)";
+      score.style.color = VERDICT_COLORS[verdict] || "var(--ink)";
 
       const meta = document.createElement("div");
       meta.className = "history-meta";
@@ -534,8 +797,8 @@ Clinch Cloud Workforce`,
       meta.appendChild(snippet);
 
       const badge = document.createElement("span");
-      badge.className = "verdict-badge " + (VERDICT_CLASSES[entry.verdict] || "");
-      badge.textContent = entry.verdict;
+      badge.className = "verdict-badge " + (VERDICT_CLASSES[verdict] || "");
+      badge.textContent = verdict;
 
       card.appendChild(score);
       card.appendChild(meta);
@@ -543,6 +806,12 @@ Clinch Cloud Workforce`,
 
       els.historyList.appendChild(card);
     });
+  }
+
+  function normalizeVerdict(verdict) {
+    if (verdict === "Safe") return "Low Risk";
+    if (verdict === "Suspicious") return "Needs Verification";
+    return verdict;
   }
 
   function formatDate(iso) {
