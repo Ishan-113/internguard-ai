@@ -825,7 +825,9 @@ Clinch Cloud Workforce`,
       }
 
       if (data.error) {
-        showAiUnavailable();
+        showAiUnavailable(
+          "AI review is configured, but the AI request failed. Check the OpenAI API key, billing or credits, and model access, then redeploy if the key changed."
+        );
         return;
       }
 
