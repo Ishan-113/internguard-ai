@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InternGuard AI — Internship Email Risk Analyzer</title>
+  <meta name="description" content="Paste an internship or job offer email and InternGuard AI scans it for payment requests, vague onboarding, unrealistic promises, and other scam red flags." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="#top" class="logo">
+        <span class="logo-mark" aria-hidden="true">◈</span>
+        InternGuard AI
+      </a>
+      <nav class="site-nav">
+        <a href="#analyzer">Analyze</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#history">History</a>
+        <a href="https://github.com/Ishan-113/internguard-ai" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow">Internship &amp; job email risk analyzer</p>
+          <h1>Before you pay, <span class="accent">scan it.</span></h1>
+          <p class="hero-sub">
+            Internship offers shouldn't come with an invoice. Paste the email you received
+            and InternGuard AI checks it for payment demands, vague onboarding, unrealistic
+            salary promises, and other patterns common in scam internships — in seconds,
+            entirely in your browser.
+          </p>
+          <div class="hero-actions">
+            <a href="#analyzer" class="btn btn-primary">Scan an email</a>
+            <a href="#how-it-works" class="btn btn-ghost">How it works</a>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-hidden="true">
+          <div class="scan-card">
+            <div class="scan-card-head">
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="scan-card-title">inbox / new offer</span>
+            </div>
+            <div class="scan-doc">
+              <div class="scan-line"></div>
+              <div class="scan-row w-90"></div>
+              <div class="scan-row w-60"></div>
+              <div class="scan-row w-95 flagged"></div>
+              <div class="scan-row w-70"></div>
+              <div class="scan-row w-50 flagged"></div>
+              <div class="scan-row w-80"></div>
+              <div class="scan-row w-40 flagged"></div>
+            </div>
+            <div class="scan-card-foot">
+              <span class="pill pill-risk">3 red flags found</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="analyzer" class="analyzer">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Step 1 &amp; 2 — paste and scan</p>
+          <h2>Run a scan</h2>
+        </div>
+
+        <div class="analyzer-grid">
+
+          <div class="panel input-panel">
+            <h3>Paste the email</h3>
+            <p class="panel-hint">Include the full text — greeting, role, stipend, and any instructions or links.</p>
+
+            <label class="visually-hidden" for="email-input">Internship or job offer email text</label>
+            <textarea id="email-input" placeholder="Paste the internship or job offer email here..." spellcheck="false"></textarea>
+
+            <div class="sample-row">
+              <span class="sample-label">Try a sample:</span>
+              <button type="button" class="chip" data-sample="safe">Safe</button>
+              <button type="button" class="chip" data-sample="suspicious">Suspicious</button>
+              <button type="button" class="chip" data-sample="high-risk">High risk</button>
+            </div>
+
+            <div class="action-row">
+              <button type="button" id="analyze-btn" class="btn btn-primary">Analyze email</button>
+              <button type="button" id="clear-btn" class="btn btn-ghost">Clear</button>
+            </div>
+            <p class="char-count" id="char-count">0 characters</p>
+          </div>
+
+          <div class="panel result-panel">
+
+            <div class="result-empty" id="result-empty">
+              <div class="gauge gauge-empty" aria-hidden="true">
+                <svg viewBox="0 0 120 120">
+                  <circle class="gauge-track" cx="60" cy="60" r="50"></circle>
+                </svg>
+                <div class="gauge-center">
+                  <span class="gauge-value">--</span>
+                  <span class="gauge-unit">/ 100</span>
+                </div>
+              </div>
+              <p>Your risk report will appear here once you analyze an email.</p>
+            </div>
+
+            <div class="result-content" id="result-content" hidden>
+              <div class="result-top">
+                <div class="gauge" id="gauge">
+                  <svg viewBox="0 0 120 120">
+                    <circle class="gauge-track" cx="60" cy="60" r="50"></circle>
+                    <circle class="gauge-fill" id="gauge-fill" cx="60" cy="60" r="50"></circle>
+                  </svg>
+                  <div class="gauge-center">
+                    <span class="gauge-value" id="gauge-value">0</span>
+                    <span class="gauge-unit">/ 100</span>
+                  </div>
+                </div>
+                <div class="verdict-block">
+                  <span class="verdict-badge" id="verdict-badge">Safe</span>
+                  <p class="result-summary" id="result-summary"></p>
+                </div>
+              </div>
+
+              <div class="result-section">
+                <h4>Red flags detected</h4>
+                <ul class="flag-list" id="flag-list"></ul>
+              </div>
+
+              <div class="result-section">
+                <h4>Safe next steps</h4>
+                <ul class="steps-list" id="steps-list"></ul>
+              </div>
+
+              <div class="result-section">
+                <h4>Suggested reply</h4>
+                <p class="panel-hint">Send this if you want the sender to confirm there's no payment involved before you go further.</p>
+                <pre class="reply-box" id="reply-box"></pre>
+                <div class="action-row">
+                  <button type="button" id="copy-reply-btn" class="btn btn-ghost">Copy reply</button>
+                  <button type="button" id="copy-report-btn" class="btn btn-ghost">Copy full report</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="how-it-works">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">From inbox to decision</p>
+          <h2>How InternGuard AI works</h2>
+        </div>
+        <ol class="steps">
+          <li>
+            <span class="step-num">01</span>
+            <h3>Paste</h3>
+            <p>Drop in the full text of an internship or job offer email — nothing leaves your browser.</p>
+          </li>
+          <li>
+            <span class="step-num">02</span>
+            <h3>Scan</h3>
+            <p>A rule-based analyzer checks the text against patterns seen in payment-based and vague-offer scams.</p>
+          </li>
+          <li>
+            <span class="step-num">03</span>
+            <h3>Act</h3>
+            <p>Get a risk score, the specific red flags found, safe next steps, and a ready-to-send reply.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="history" class="history">
+      <div class="container">
+        <div class="section-head history-head">
+          <div>
+            <p class="eyebrow">Saved on this device</p>
+            <h2>Scan history</h2>
+          </div>
+          <button type="button" id="clear-history-btn" class="btn btn-ghost">Clear history</button>
+        </div>
+        <div class="history-list" id="history-list">
+          <p class="history-empty" id="history-empty">No scans yet. Emails you analyze will show up here, stored only in this browser.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="logo-mark" aria-hidden="true">◈</span>
+        <div>
+          <strong>InternGuard AI</strong>
+          <p>Built by Ishan Prajapati — Frontend Developer &amp; Cybersecurity Enthusiast</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/Ishan-113/internguard-ai" target="_blank" rel="noopener">GitHub repo</a>
+        <a href="https://github.com/Ishan-113" target="_blank" rel="noopener">GitHub profile</a>
+        <a href="https://portfolio-ishan-1224.vercel.app" target="_blank" rel="noopener">Portfolio</a>
+      </div>
+    </div>
+    <p class="disclaimer container">
+      InternGuard AI is for awareness and educational support only. It does not provide legal advice or
+      guaranteed fraud detection. Always verify opportunities through official company channels.
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
