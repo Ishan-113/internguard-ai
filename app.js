@@ -10,6 +10,77 @@
 (function () {
   "use strict";
 
+  const PAYMENT_PHRASES = [
+    "registration fee",
+    "enrollment fee",
+    "enrolment fee",
+    "internship fee",
+    "training fee",
+    "certificate fee",
+    "refundable fee",
+    "refundable deposit",
+    "processing fee",
+    "confirmation fee",
+    "security deposit",
+    "payment link",
+    "after payment",
+    "payment screenshot",
+    "transaction screenshot",
+    "pay to confirm",
+    "scan the qr code",
+    "upi id",
+    "upi",
+    "qr",
+    "inr",
+    "rs",
+    "\u20b9",
+  ];
+
+  const PAYMENT_WORDS = ["payment", "pay", "paid", "transaction", "upi", "qr", "amount", "fee", "inr", "rs", "\u20b9"];
+
+  const CONFIRMATION_WORDS = [
+    "confirm",
+    "confirmation",
+    "enrollment",
+    "enrolment",
+    "seat",
+    "onboarding",
+    "internship",
+    "joining",
+    "selected",
+    "shortlisted",
+  ];
+
+  const SCREENSHOT_INSTRUCTION_PHRASES = [
+    "payment screenshot",
+    "transaction screenshot",
+    "send a screenshot",
+    "reply with a screenshot",
+    "share a screenshot",
+    "share screenshot",
+    "send screenshot",
+    "upload screenshot",
+    "screenshot of the transaction",
+    "screenshot after payment",
+    "whatsapp your payment",
+  ];
+
+  const VAGUE_ONBOARDING_PHRASES = [
+    "shared after enrollment",
+    "shared after enrolment",
+    "shared after payment",
+    "shared post payment",
+    "assigned later",
+    "details after enrollment",
+    "details after enrolment",
+    "details after payment",
+    "credentials after payment",
+    "provided after registration",
+    "will be shared once you complete",
+  ];
+
+  const NO_PAYMENT_TERMS = ["no payment required", "no fees", "free registration", "free to register", "no charges"];
+
   /* ---------------------------------------------------
      1. Risk rules
      Each rule contributes a fixed weight to the score if
@@ -21,6 +92,16 @@
       id: "payment",
       weight: 35,
       severity: "high",
+      test: (rawText, text) => {
+        const signal = detectPaymentSignal(text);
+        if (!signal) return null;
+
+        if (signal.type === "context") {
+          return `Connects payment language ("${signal.paymentWord}") with internship confirmation language ("${signal.confirmationWord}"). Legitimate internships should not require candidates to pay to confirm a seat, joining, or onboarding.`;
+        }
+
+        return `Asks for money before onboarding - the email mentions "${signal.matched}". Legitimate internships never charge candidates to join.`;
+      },
       keywords: [
         "registration fee",
         "training fee",
@@ -45,10 +126,16 @@
       weight: 20,
       severity: "high",
       keywords: [
+        "payment screenshot",
+        "transaction screenshot",
         "send a screenshot",
         "reply with a screenshot",
         "share a screenshot",
         "share screenshot",
+        "send screenshot",
+        "upload screenshot",
+        "screenshot of the transaction",
+        "screenshot after payment",
         "do not share this email",
         "keep this offer confidential",
         "pay first to confirm",
@@ -87,10 +174,13 @@
       severity: "medium",
       keywords: [
         "shared after enrollment",
+        "shared after enrolment",
         "shared after payment",
         "shared post payment",
         "assigned later",
         "details after enrollment",
+        "details after enrolment",
+        "details after payment",
         "credentials after payment",
         "provided after registration",
         "will be shared once you complete",
@@ -141,38 +231,29 @@
   const TRUST_RULES = [
     {
       id: "official_domain",
-      weight: 10,
+      weight: 8,
       keywords: [
         "google.com",
         "hackerrank.com",
         "microsoft.com",
         "github.com",
         "linkedin.com",
-        "vercel.com",
       ],
       describe: (kw) => `Mentions a recognizable official domain ("${kw}") — still worth confirming the email actually came from that domain.`,
     },
     {
       id: "no_payment",
       weight: 10,
-      keywords: [
-        "no payment required",
-        "no fees",
-        "free to register",
-        "free registration",
-        "no charges",
-        "no registration fee",
-      ],
+      keywords: NO_PAYMENT_TERMS,
       describe: (kw) => `States there's no payment involved ("${kw}") — a good sign, though it's still worth confirming this in writing.`,
     },
     {
       id: "clear_details",
-      weight: 8,
+      weight: 6,
       keywords: [
         "eligibility",
         "selection process",
         "timeline",
-        "program details",
         "official website",
         "terms and conditions",
       ],
@@ -249,6 +330,59 @@ Clinch Cloud Workforce`,
   /* ---------------------------------------------------
      3. Core analyzer
      --------------------------------------------------- */
+  function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function keywordPattern(keyword, flags = "") {
+    const normalized = keyword.toLowerCase();
+    const escaped = escapeRegex(normalized).replace(/\s+/g, "\\s+");
+    const startsWithWord = /^[a-z0-9]/.test(normalized);
+    const endsWithWord = /[a-z0-9]$/.test(normalized);
+    return new RegExp(`${startsWithWord ? "\\b" : ""}${escaped}${endsWithWord ? "\\b" : ""}`, flags);
+  }
+
+  function keywordMatches(text, keyword) {
+    return keywordPattern(keyword).test(text);
+  }
+
+  function findKeyword(keywords, text) {
+    return keywords.find((kw) => keywordMatches(text, kw)) || null;
+  }
+
+  function removeKeywordMatches(text, keywords) {
+    return keywords.reduce((cleaned, kw) => cleaned.replace(keywordPattern(kw, "g"), " "), text);
+  }
+
+  function detectPaymentSignal(text) {
+    const directMatch = findKeyword(PAYMENT_PHRASES, text);
+    if (directMatch) {
+      return { type: "direct", matched: directMatch };
+    }
+
+    const contextText = removeKeywordMatches(text, NO_PAYMENT_TERMS);
+    const paymentWord = findKeyword(PAYMENT_WORDS, contextText);
+    const confirmationWord = findKeyword(CONFIRMATION_WORDS, contextText);
+
+    if (paymentWord && confirmationWord) {
+      return { type: "context", paymentWord, confirmationWord };
+    }
+
+    return null;
+  }
+
+  function hasScreenshotInstruction(text) {
+    return (
+      Boolean(findKeyword(SCREENSHOT_INSTRUCTION_PHRASES, text)) ||
+      /\b(send|share|reply|upload|attach|whatsapp)\b[\s\S]{0,80}\bscreenshot\b/.test(text) ||
+      /\bscreenshot\b[\s\S]{0,80}\b(payment|transaction)\b/.test(text)
+    );
+  }
+
+  function hasVagueOnboarding(text) {
+    return Boolean(findKeyword(VAGUE_ONBOARDING_PHRASES, text));
+  }
+
   function analyzeEmail(rawText) {
     const text = rawText.toLowerCase();
     let rawScore = 0;
@@ -266,7 +400,7 @@ Clinch Cloud Workforce`,
         return;
       }
 
-      const matched = rule.keywords.find((kw) => text.includes(kw));
+      const matched = findKeyword(rule.keywords, text);
       if (matched) {
         rawScore += rule.weight;
         hitIds.add(rule.id);
@@ -282,7 +416,7 @@ Clinch Cloud Workforce`,
     let trustReduction = 0;
 
     TRUST_RULES.forEach((rule) => {
-      const matched = rule.keywords.find((kw) => text.includes(kw));
+      const matched = findKeyword(rule.keywords, text);
       if (matched) {
         trustSignals.push({ text: rule.describe(matched) });
         trustReduction += rule.weight;
@@ -293,10 +427,19 @@ Clinch Cloud Workforce`,
 
     // --- Safety floors ---
     // A payment request alone is serious enough that trust signals
-    // can't bring it below "Needs Verification" territory.
-    if (hitIds.has("payment") && hitIds.has("instructions")) {
+    // can't bring it below "Needs Verification" territory. Screenshot
+    // and vague-onboarding combinations are stronger risk patterns.
+    const paymentDetected = hitIds.has("payment");
+    const screenshotInstructionDetected = hasScreenshotInstruction(text);
+    const vagueOnboardingDetected = hitIds.has("vague") || hasVagueOnboarding(text);
+
+    if (paymentDetected && screenshotInstructionDetected && vagueOnboardingDetected) {
+      score = Math.max(score, 85);
+    } else if (paymentDetected && screenshotInstructionDetected) {
+      score = Math.max(score, 75);
+    } else if (paymentDetected && vagueOnboardingDetected) {
       score = Math.max(score, 70);
-    } else if (hitIds.has("payment")) {
+    } else if (paymentDetected) {
       score = Math.max(score, 55);
     }
 
@@ -444,6 +587,7 @@ Clinch Cloud Workforce`,
     return LEGACY_VERDICT_MAP[verdict] || verdict;
   }
 
+  let latestEmailText = "";
   let lastResult = null;
 
   /* --- Char count --- */
@@ -480,6 +624,7 @@ Clinch Cloud Workforce`,
     }
 
     const result = analyzeEmail(raw);
+    latestEmailText = raw;
     lastResult = result;
     renderResult(result);
     resetAiReviewBox();
@@ -647,7 +792,7 @@ Clinch Cloud Workforce`,
 
   els.aiReviewBtn.addEventListener("click", () => {
     if (!lastResult) return;
-    requestAiAnalysis(els.input.value.trim(), lastResult);
+    requestAiAnalysis(latestEmailText, lastResult);
   });
 
   async function requestAiAnalysis(emailText, ruleResult) {

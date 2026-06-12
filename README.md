@@ -39,6 +39,7 @@ InternGuard AI looks for **both** sets of signals and returns a risk score, a ve
 - ✉️ Ready-to-send reply that asks the sender to confirm there's no fee
 - 📑 Copy the reply or the full report to your clipboard in one click
 - 🕘 Scan history saved locally (no account, no server, no tracking)
+- 🔒 No Gmail access required, and no training data is collected by this app
 - 🧪 Three built-in sample emails (Low Risk / Needs Verification / High Risk) for instant demos
 - 📱 Fully responsive, keyboard-accessible interface
 
@@ -61,7 +62,7 @@ The rule-based scan requires no API keys, accounts, or backend, and runs entirel
 
    | Category | What it looks for | Weight |
    |---|---|---|
-   | Payment request | "registration fee," "refundable deposit," "UPI ID," payment links, etc. | 35 |
+   | Payment request | "registration fee," "enrollment fee," "internship fee," "training fee," "certificate fee," "refundable fee," "payment link," "payment screenshot," "transaction screenshot," "UPI," "QR," "INR," "Rs," "₹," and contextual payment + confirmation wording | 35 |
    | Suspicious instructions | "reply with a screenshot," "keep this confidential," "pay first to confirm" | 20 |
    | Unrealistic promises | "guaranteed placement," "PPO offer up to 5 LPA," "instant selection" | 15 |
    | Vague onboarding | "details shared after enrollment," "assigned later" | 15 |
@@ -72,14 +73,16 @@ The rule-based scan requires no API keys, accounts, or backend, and runs entirel
 
    | Category | What it looks for | Weight |
    |---|---|---|
-   | Official domain mentioned | google.com, hackerrank.com, microsoft.com, github.com, linkedin.com, vercel.com | -10 |
-   | No payment stated | "no payment required," "no fees," "free registration," "no charges," etc. | -10 |
-   | Clear program details | "eligibility," "selection process," "timeline," "official website," "terms and conditions" | -8 |
+   | Official domain mentioned | google.com, hackerrank.com, microsoft.com, github.com, linkedin.com | -8 |
+   | No payment stated | "no payment required," "no fees," "free registration," "free to register," "no charges" | -10 |
+   | Clear program details | "eligibility," "timeline," "selection process," "official website," "terms and conditions" | -6 |
    | Evaluation-based process | "interview," "assessment," "coding test," "evaluation" | -8 |
 
    Trust signals can only reduce the score within limits — **safety floors** make sure they never hide a clearly risky email:
    - If a payment request is detected, the score never drops below **55**.
-   - If a payment request **and** a suspicious instruction are both detected, the score never drops below **70** (always **High Risk**), even if the email also mentions a well-known domain.
+   - If payment plus a screenshot instruction is detected, the score never drops below **75**.
+   - If payment plus vague onboarding is detected, the score never drops below **70**.
+   - If payment plus a screenshot instruction plus vague onboarding is detected, the score never drops below **85**.
 
 3. **Act** — based on the final score, the email is labeled:
 
@@ -114,6 +117,14 @@ In more detail:
 3. Redeploy. The "Ask AI for deeper review" button will now return an AI-assisted explanation.
 
 **API keys must only ever be stored in Vercel Environment Variables** — never in `app.js`, `index.html`, `styles.css`, or any other frontend file, and never committed to the repository.
+
+### Privacy and data notes
+
+- InternGuard AI does **not** need Gmail, Outlook, or inbox access. Users paste email text manually.
+- The local rule-based scan runs in the browser and does not require an account, API key, or server.
+- The app does **not** collect training data. Scan history is stored only in the user's browser through `localStorage`.
+- If the optional AI review is enabled, the pasted email text and rule-based result are sent only to the configured serverless `/api/analyze` endpoint for that review.
+- The AI response is not a final authority. It must not claim that an email is definitely real or fake; it only provides risk-based explanation and verification steps.
 
 ## Sample Use Case
 

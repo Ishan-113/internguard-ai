@@ -135,6 +135,12 @@ p {
   color: var(--accent-dark);
 }
 
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
 .chip {
   font-family: var(--font-mono);
   font-size: 0.8rem;
