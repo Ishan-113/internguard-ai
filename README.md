@@ -1,162 +1,168 @@
 # InternGuard AI
 
-**Internship Email Risk Analyzer** - paste an internship or job offer email and get a transparent risk score, red flags, trust signals, recommended next steps, and a ready-to-send verification reply.
+**Internship Email Risk Analyzer** — paste an internship or job offer email and get an instant risk score, the specific red flags and trust signals found, safe next steps, and a ready-to-send reply. Optionally, ask an AI model for a second-opinion review on top of that result.
 
-Live demo: [internguard-ai.vercel.app](https://internguard-ai.vercel.app)
-
-Made by [Ishan Prajapati](https://portfolio-ishan-1224.vercel.app) | Frontend Developer & Cybersecurity Enthusiast
+🔗 Live demo: _add your Vercel URL here after deploying_
 
 ---
 
 ## Overview
 
-Students and freshers often receive internship and job offer emails that look professional but include risky patterns such as registration fees, vague onboarding steps, unrealistic stipend promises, or requests for payment screenshots.
+Students and freshers regularly receive internship and job offer emails that *look* professional but ask for a "registration fee," "training fee," or "refundable deposit" before onboarding — or that keep the role, stipend, and project details vague until after payment.
 
-**InternGuard AI** helps students pause and verify before clicking links, sharing personal details, or paying money. The main safety backbone is a rule-based analyzer that runs fully in the browser. Optional AI-assisted review can be added later through a backend or serverless API, but AI is not the final authority.
-
-The project is demonstrated using fictional internship email samples, including one that asks for a registration fee before enrollment.
+InternGuard AI scans the text of any internship/job email for the patterns commonly seen in these offers — both warning signs and positive signals — so a student can pause and verify **before** clicking a link, replying with a screenshot, or paying anything.
 
 ## Problem Statement
 
 Fake or misleading internship emails often:
 
 - Use professional-sounding language, logos, and HR signatures
-- Ask for a registration, training, certificate, or enrollment fee
-- Promise high stipends, guaranteed placements, or pre-placement offers with little evaluation
-- Keep project, team, and stipend details vague until after enrollment
-- Ask candidates to reply with a payment screenshot
-- Use shortened or unclear links instead of the company's official domain
+- Ask for a registration, training, certificate, or enrollment fee — sometimes framed as "refundable"
+- Promise high stipends, guaranteed placements, or pre-placement offers (PPOs) with little to no evaluation
+- Leave project, team, and stipend details "to be shared after enrollment"
+- Ask candidates to reply with a screenshot of their payment, or to keep the offer "confidential"
+- Use shortened links instead of the company's own domain
 
-InternGuard AI analyzes these patterns and gives the user a clear educational verdict: **Low Risk**, **Needs Verification**, or **High Risk**. It does not guarantee whether an email is genuine or fake.
+At the same time, genuine offers usually share some recognizable, positive signals: a clear "no fees" statement, mention of an official domain, a defined selection process, and an evaluation step (interview, assessment, coding test).
+
+InternGuard AI looks for **both** sets of signals and returns a risk score, a verdict (**Low Risk**, **Needs Verification**, or **High Risk**), the specific signals detected, recommended next steps, and a polite reply template that asks the sender to confirm — in writing — that no payment is required.
 
 ## Features
 
-- Paste any internship or job offer email
-- One-click rule-based email risk analysis
-- Risk score from 0 to 100
-- Verdict badge: **Low Risk / Needs Verification / High Risk**
-- Specific red flags with human-readable explanations
-- Trust signals that can slightly reduce the score without overriding serious payment risks
-- Recommended next steps based on detected issues
-- Copyable reply template for verifying whether any payment is required
-- Copy full report to clipboard
-- Scan history stored only in the browser using `localStorage`
-- Built-in sample emails for quick demos
-- Optional AI review button that calls `/api/analyze` only after the user clicks it
-- Responsive interface for desktop and mobile
+- 📋 Paste any internship/job offer email into a text area
+- 🛡️ One-click **Analyze email** with an instant risk score (0–100)
+- 🎯 Clear verdict badge: **Low Risk / Needs Verification / High Risk**
+- ⚠️ Specific, human-readable red flags — not just "looks risky"
+- ✅ Trust signals — positive details the email shares, with a note to verify them independently
+- 🧭 Tailored safe next steps based on what was actually detected
+- 🤖 Optional **AI-assisted review** for a second opinion (works only if a backend is configured — the app is fully usable without it)
+- ✉️ Ready-to-send reply that asks the sender to confirm there's no fee
+- 📑 Copy the reply or the full report to your clipboard in one click
+- 🕘 Scan history saved locally (no account, no server, no tracking)
+- 🧪 Three built-in sample emails (Low Risk / Needs Verification / High Risk) for instant demos
+- 📱 Fully responsive, keyboard-accessible interface
 
 ## Tech Stack
 
-- **HTML5**
-- **CSS3**
-- **Vanilla JavaScript**
-- **localStorage**
-- **Vercel** for hosting
+- **HTML5, CSS3, Vanilla JavaScript** — no frameworks, no build step
+- **localStorage** for scan history (stays on the user's device)
+- **Google Fonts** — Space Grotesk, Inter, JetBrains Mono
+- **Optional serverless function** (`api/analyze.js`) for the AI review step, deployable on Vercel
+- **Deployment** — Vercel (static site + optional serverless function)
 
-The rule-based scan works fully in the browser with no login, database, backend, or API key. The optional AI review requires a backend or serverless endpoint and must never expose API keys in frontend files.
+The rule-based scan requires no API keys, accounts, or backend, and runs entirely in the browser. The AI review is an additional, optional layer.
 
 ## How It Works
 
-1. **Paste** - the user pastes the full text of an internship or job offer email.
-2. **Scan** - the rule-based analyzer checks the email against common risk categories and positive trust signals.
-3. **Review** - the app shows a score, verdict, red flags, trust signals, recommended next steps, and a suggested reply.
-4. **Optional AI review** - if a backend is configured, the user can click a button to request a deeper AI-assisted explanation. The email text is not sent anywhere unless this button is clicked.
+1. **Paste** — drop in the full text of an internship/job offer email (subject, greeting, role, stipend, links, instructions).
+2. **Scan** — the local rule-based analyzer checks the text against two sets of signals:
 
-## Risk Rules
+   **Risk signals** (each adds to the score):
 
-| Category | What it looks for | Weight |
-|---|---|---:|
-| Payment request | Registration fee, refundable deposit, UPI ID, payment links | 35 |
-| Suspicious instructions | Payment screenshot, confidentiality pressure, pay-first wording | 20 |
-| Unrealistic promises | Guaranteed placement, instant selection, PPO claims | 15 |
-| Vague onboarding | Details shared after enrollment, assigned later, unclear project info | 15 |
-| Suspicious links | Shortened links or unclear domains | 10 |
-| Poor language quality | Generic greetings, excessive punctuation, pressure wording | 5 |
+   | Category | What it looks for | Weight |
+   |---|---|---|
+   | Payment request | "registration fee," "refundable deposit," "UPI ID," payment links, etc. | 35 |
+   | Suspicious instructions | "reply with a screenshot," "keep this confidential," "pay first to confirm" | 20 |
+   | Unrealistic promises | "guaranteed placement," "PPO offer up to 5 LPA," "instant selection" | 15 |
+   | Vague onboarding | "details shared after enrollment," "assigned later" | 15 |
+   | Suspicious links | shortened links (bit.ly, tinyurl, etc.) instead of a real domain | 10 |
+   | Poor language quality | generic greetings ("Dear Candidate"), excessive "!!", ALL-CAPS pressure words | 5 |
 
-## Trust Signals
+   **Trust signals** (each slightly reduces the score):
 
-Trust signals are weak positive indicators. They can reduce the final score slightly, but they do not prove that an email is genuine.
+   | Category | What it looks for | Weight |
+   |---|---|---|
+   | Official domain mentioned | google.com, hackerrank.com, microsoft.com, github.com, linkedin.com, vercel.com | -10 |
+   | No payment stated | "no payment required," "no fees," "free registration," "no charges," etc. | -10 |
+   | Clear program details | "eligibility," "selection process," "timeline," "official website," "terms and conditions" | -8 |
+   | Evaluation-based process | "interview," "assessment," "coding test," "evaluation" | -8 |
 
-| Trust signal | Examples | Adjustment |
-|---|---|---:|
-| Recognizable domain mention | `google.com`, `microsoft.com`, `github.com`, `linkedin.com` | -10 |
-| No payment required | `no payment required`, `no fees`, `no registration fee` | -15 |
-| Clear program details | `eligibility`, `selection process`, `timeline`, `official website` | -5 |
-| Evaluation-based process | `interview`, `assessment`, `coding test`, `evaluation` | -5 |
+   Trust signals can only reduce the score within limits — **safety floors** make sure they never hide a clearly risky email:
+   - If a payment request is detected, the score never drops below **55**.
+   - If a payment request **and** a suspicious instruction are both detected, the score never drops below **70** (always **High Risk**), even if the email also mentions a well-known domain.
 
-Payment-related guardrails stay strict:
+3. **Act** — based on the final score, the email is labeled:
 
-- If a payment risk rule is triggered, trust signals cannot reduce the final score below 55.
-- If both payment and suspicious-instruction rules are triggered, trust signals cannot reduce the final score below 70.
+   | Score | Verdict |
+   |---|---|
+   | 0–30 | Low Risk |
+   | 31–69 | Needs Verification |
+   | 70–100 | High Risk |
 
-## Risk Scoring Logic
+   The report then lists the specific red flags and trust signals found, suggests next steps, and provides a copyable reply asking the sender to confirm there's no payment required.
 
-InternGuard AI is intentionally transparent.
+## AI Pipeline (Hybrid Approach)
 
-- Each risk category contributes a fixed score when triggered.
-- Each trust category can apply a small negative adjustment.
-- A category is counted once, even if multiple matching phrases appear.
-- The final score is clamped between 0 and 100.
-- The final verdict uses the adjusted score.
+InternGuard AI uses a hybrid pipeline. The rule-based analyzer runs locally first and provides the main risk score. The optional AI review is a second layer that explains the result, summarizes risk and trust signals, and gives a verification checklist. The AI is not treated as the final authority; it supports the transparent rule-based result.
 
-| Score | Verdict |
-|---|---|
-| 0-30 | Low Risk |
-| 31-69 | Needs Verification |
-| 70-100 | High Risk |
+In more detail:
 
-## Optional AI Review
+1. The user pastes an internship/job email and clicks **Analyze email**.
+2. The rule-based engine in `app.js` runs first, entirely in the browser, and produces: risk signals, trust signals, a risk score (0–100), a verdict, red flags, and safe next steps.
+3. This rule-based result is shown immediately and **works without any API** — there is no network dependency at this stage.
+4. The user can optionally click **"Ask AI for deeper review"**.
+5. The frontend calls `requestAiAnalysis(emailText, ruleResult)`, which sends a POST request to `/api/analyze` with the original email text and the structured rule-based result (score, verdict, red flags, trust signals).
+6. `api/analyze.js`, an optional Vercel serverless function, receives this payload and uses the rule-based result **as context**. It does not re-score the email from scratch and must not override the rule-based verdict.
+7. If configured, it returns three fields: `aiSummary` (plain-language explanation), `verificationChecklist` (concrete steps to verify the offer), and `finalAdvice` (a short closing recommendation consistent with the rule-based verdict).
+8. If no API key is configured, or the request fails for any reason, the UI shows: *"AI review is not configured yet. The rule-based analysis above is still available and works offline."* — and the rule-based result above remains fully usable.
+9. The AI response never guarantees whether an email is real or fake — it only gives risk-based guidance and verification steps, and it never asks the user to pay or to share sensitive data.
 
-The frontend includes a button for optional AI-assisted review. It sends a `POST` request to `/api/analyze` with:
+### Setting up the optional AI review
 
-- `emailText`
-- `ruleResult`
+1. Deploy the project to Vercel (the `api/analyze.js` file becomes a serverless function automatically).
+2. In the Vercel project settings, add an environment variable named `OPENAI_API_KEY` (or `AI_API_KEY`) with your API key.
+3. Redeploy. The "Ask AI for deeper review" button will now return an AI-assisted explanation.
 
-If `/api/analyze` does not exist or is not configured, the app shows a friendly not-configured message and keeps the rule-based result visible.
+**API keys must only ever be stored in Vercel Environment Variables** — never in `app.js`, `index.html`, `styles.css`, or any other frontend file, and never committed to the repository.
 
-To configure AI later on Vercel:
+## Sample Use Case
 
-1. Add a serverless function at `api/analyze.js`.
-2. Read the secret key from `process.env.AI_API_KEY` or `process.env.OPENAI_API_KEY`.
-3. Add the environment variable in the Vercel project settings.
-4. Return JSON with `aiSummary`, `verificationChecklist`, and `finalAdvice`.
-5. Keep API keys out of `app.js`, `index.html`, `styles.css`, and `README.md`.
+> A student receives an email offering an "HTML/CSS Developer Internship" that asks for a ₹1594 "registration fee" to confirm enrollment, promises a stipend "depending on successful completion," and asks for a screenshot after payment.
+>
+> Pasting this email into InternGuard AI returns a **High Risk** verdict (~85/100), flags the registration fee, the unclear stipend, the vague project details, and the screenshot request — and provides a reply asking the sender to confirm in writing that no fee is required.
 
-AI review should explain the rule-based result and suggest verification steps. It should not replace the rule-based engine or claim certainty.
+Three ready-made examples are built into the app (and included in `sample-emails/`) so this flow can be demoed in under two minutes without needing a real example on hand.
 
-## Demo Scenario
+## How to Run Locally
 
-A student receives a fictional internship email offering a web development internship. The email asks for a registration fee, says project details will be shared after enrollment, and asks for a screenshot after payment.
+No build tools or dependencies are required for the rule-based app.
 
-When pasted into InternGuard AI, the app identifies the payment request, vague onboarding, and screenshot instruction, then returns a **High Risk** verdict with recommended next steps.
+```bash
+git clone https://github.com/Ishan-113/internguard-ai.git
+cd internguard-ai
+```
 
-## Privacy & Safety
+Then either:
 
-InternGuard AI is designed with privacy in mind:
+- Open `index.html` directly in your browser, **or**
+- Use the VS Code "Live Server" extension for auto-reload during development.
 
-- The rule-based scan runs locally in the browser.
-- Pasted email text is not sent anywhere during the normal scan.
-- Optional AI review sends email text only after the user clicks the AI review button.
-- No login is required.
-- No personal data is collected.
-- Scan history is saved only in the user's browser through `localStorage`.
-- The tool is for awareness and educational support only.
+The "Ask AI for deeper review" button will show the "not configured" message when run this way, since `/api/analyze` is a serverless function that only exists once deployed to Vercel (or run with the Vercel CLI).
+
+## Deployment
+
+This project deploys directly to **Vercel** as a static site with one optional serverless function:
+
+1. Push the repository to GitHub.
+2. Go to [vercel.com](https://vercel.com), choose **New Project**, and import the repo.
+3. Leave the framework preset as **Other** (no build command needed).
+4. (Optional) Add the `OPENAI_API_KEY` or `AI_API_KEY` environment variable to enable the AI review step.
+5. Deploy — Vercel will serve `index.html`, `styles.css`, and `app.js` as static files, and `api/analyze.js` as a serverless function at `/api/analyze`.
 
 ## Future Improvements
 
-- Add a secure `api/analyze.js` serverless endpoint for optional AI review
-- Browser extension version for Gmail and Outlook
-- Exportable PDF scan reports
-- Multi-language support for internship offers in different languages
-- Community-maintained scam pattern updates
+- Browser extension version that scans emails directly in Gmail/Outlook
+- Crowd-sourced pattern list, with versioned updates as new offer formats appear
+- Export scan history as a PDF report
+- Multi-language support for non-English internship offers
+- Support for additional AI providers in `api/analyze.js`
 
 ## Disclaimer
 
-InternGuard AI is for **awareness and educational support only**. It does not provide legal advice or guaranteed fraud detection. A low-risk result does not guarantee that an offer is genuine. Always verify internships and jobs through official company websites, verified LinkedIn pages, and direct company contact before sharing personal information or making any payment.
+InternGuard AI is for **awareness and educational support only**. It does not provide legal advice or guaranteed fraud detection, and a "Low Risk" result is not a guarantee that an offer is genuine — nor does a "High Risk" result guarantee that it is fake. Always verify internship and job opportunities through a company's official website, official domain, and LinkedIn page, and never pay any fee to be considered for, or onboarded into, an internship.
 
 ## Author
 
 Made by **Ishan Prajapati** | Frontend Developer & Cybersecurity Enthusiast
-
 - GitHub: [Ishan-113](https://github.com/Ishan-113)
 - Portfolio: [portfolio-ishan-1224.vercel.app](https://portfolio-ishan-1224.vercel.app)

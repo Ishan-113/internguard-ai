@@ -91,8 +91,8 @@
 
             <div class="sample-row">
               <span class="sample-label">Try a sample:</span>
-              <button type="button" class="chip" data-sample="safe">Low risk</button>
-              <button type="button" class="chip" data-sample="suspicious">Needs verification</button>
+              <button type="button" class="chip" data-sample="safe">Safe</button>
+              <button type="button" class="chip" data-sample="suspicious">Suspicious</button>
               <button type="button" class="chip" data-sample="high-risk">High risk</button>
             </div>
 
@@ -131,7 +131,7 @@
                   </div>
                 </div>
                 <div class="verdict-block">
-                  <span class="verdict-badge" id="verdict-badge">Low Risk</span>
+                  <span class="verdict-badge" id="verdict-badge">Safe</span>
                   <p class="result-summary" id="result-summary"></p>
                 </div>
               </div>
@@ -147,15 +147,8 @@
               </div>
 
               <div class="result-section">
-                <h4>Recommended next steps</h4>
+                <h4>Safe next steps</h4>
                 <ul class="steps-list" id="steps-list"></ul>
-              </div>
-
-              <div class="result-section ai-review-section">
-                <h4>Optional AI review</h4>
-                <p class="panel-hint">The rule-based result works even without AI. Click only if you want to send this pasted email to a configured backend for deeper review.</p>
-                <button type="button" id="ai-review-btn" class="btn btn-ghost">Ask AI for deeper review</button>
-                <div class="ai-review-box" id="ai-review-box" hidden></div>
               </div>
 
               <div class="result-section">
@@ -166,6 +159,13 @@
                   <button type="button" id="copy-reply-btn" class="btn btn-ghost">Copy reply</button>
                   <button type="button" id="copy-report-btn" class="btn btn-ghost">Copy full report</button>
                 </div>
+              </div>
+
+              <div class="result-section ai-section">
+                <h4>Optional AI review</h4>
+                <p class="panel-hint">The rule-based analysis above always works offline. This step asks an AI model for a second opinion if a backend is configured.</p>
+                <button type="button" id="ai-review-btn" class="btn btn-ghost">Ask AI for deeper review</button>
+                <div class="ai-review-box" id="ai-review-box" hidden></div>
               </div>
             </div>
 
@@ -194,7 +194,7 @@
           <li>
             <span class="step-num">03</span>
             <h3>Act</h3>
-            <p>Get a risk score, the specific red flags found, recommended next steps, and a ready-to-send reply.</p>
+            <p>Get a risk score, the specific red flags found, safe next steps, and a ready-to-send reply.</p>
           </li>
         </ol>
       </div>

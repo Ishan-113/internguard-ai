@@ -582,10 +582,14 @@ section {
   border: 1px solid currentColor;
 }
 
-.verdict-badge.suspicious,
 .verdict-badge.needs-verification {
   background: var(--suspicious-soft);
   color: var(--suspicious);
+}
+
+.verdict-badge.low-risk {
+  background: var(--safe-soft);
+  color: var(--safe);
 }
 
 .verdict-badge.high-risk {
@@ -605,7 +609,6 @@ section {
 }
 
 .flag-list,
-.trust-list,
 .steps-list {
   margin: 0;
   padding: 0;
@@ -616,7 +619,6 @@ section {
 }
 
 .flag-list li,
-.trust-list li,
 .steps-list li {
   font-size: 0.92rem;
   color: var(--ink);
@@ -642,15 +644,6 @@ section {
   font-weight: 700;
 }
 
-.trust-list li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  top: -1px;
-  color: var(--safe);
-  font-weight: 700;
-}
-
 .flag-list .flag-low::before {
   color: var(--suspicious);
 }
@@ -664,6 +657,33 @@ section {
   content: "";
 }
 
+/* --- Trust signals --- */
+.trust-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.trust-list li {
+  font-size: 0.92rem;
+  color: var(--ink);
+  padding-left: 1.6rem;
+  position: relative;
+  line-height: 1.5;
+}
+
+.trust-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: -1px;
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
 .trust-list .trust-none {
   padding-left: 0;
   color: var(--muted);
@@ -673,51 +693,61 @@ section {
   content: "";
 }
 
-.ai-review-section .btn {
-  margin-bottom: 1rem;
+/* --- Optional AI review --- */
+.ai-section .btn-ghost {
+  margin-top: 0.4rem;
 }
 
 .ai-review-box {
-  background: var(--paper);
+  margin-top: 1rem;
+  padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 14px;
+  background: var(--paper);
 }
 
-.ai-review-box p {
+.ai-review-box .ai-status {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.ai-review-box .ai-summary {
+  font-size: 0.92rem;
   color: var(--ink);
-  font-size: 0.9rem;
+  margin: 0 0 0.8rem;
 }
 
 .ai-review-box h5 {
   font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  margin: 0 0 0.5rem;
+}
+
+.ai-review-box .ai-checklist {
+  margin: 0 0 0.8rem;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ai-review-box .ai-checklist li {
   font-size: 0.9rem;
-  margin: 1rem 0 0.5rem;
   color: var(--ink);
 }
 
-.ai-review-box ul {
+.ai-review-box .ai-advice {
+  font-size: 0.9rem;
+  color: var(--ink);
+  font-style: italic;
   margin: 0;
-  padding-left: 1.1rem;
-}
-
-.ai-review-box li {
-  font-size: 0.88rem;
-  line-height: 1.5;
-  color: var(--ink);
-  margin-bottom: 0.35rem;
-}
-
-.ai-review-box.ai-review-loading,
-.ai-review-box.ai-review-error {
-  color: var(--muted);
-  border-color: var(--suspicious);
-  background: var(--suspicious-soft);
-}
-
-.ai-final-advice {
-  margin-top: 0.9rem;
-  font-weight: 600;
+  border-top: 1px solid var(--border);
+  padding-top: 0.7rem;
 }
 
 #email-input.input-error {
