@@ -1,131 +1,161 @@
 /**
- * InternGuard AI - optional AI review endpoint
- *
- * Vercel exposes this serverless function at /api/analyze.
- * The browser rule-based analyzer works without this endpoint.
+ * InternGuard AI - optional Gemini AI review endpoint
+ * Vercel serverless function
  */
 
 const SYSTEM_PROMPT = `You are a safety reviewer inside InternGuard AI, a tool that helps students assess internship and job offer emails.
 
 You will be given:
 - the original email text
-- a rule-based risk analysis with a score, verdict, detected risk signals, and detected trust signals
+- a rule-based risk analysis that already includes a risk score, verdict, red flags, and trust signals
 
-Follow these rules strictly:
-1. Do not create a new score. Do not override or contradict the rule-based verdict.
-2. Do not say the email is definitely real, fake, genuine, or a scam. Discuss risk signals, trust signals, and verification steps only.
-3. Always recommend verifying through the company's official website, official domain email, and official LinkedIn page instead of links in the email.
-4. Never tell the user to pay a fee, deposit, or charge.
-5. Never ask the user to share passwords, OTPs, bank details, card numbers, Aadhaar, or similar sensitive data.
-6. Keep the tone concise, calm, and student-friendly.
+Rules:
+1. Do NOT invent a new score.
+2. Do NOT contradict or override the rule-based verdict.
+3. Do NOT say the email is definitely real or definitely fake.
+4. Explain risk and trust signals clearly.
+5. Never tell the user to pay money.
+6. Never ask for OTP, bank details, card details, Aadhaar, passwords, or UPI PIN.
+7. Recommend verifying through official company website, official domain email, and official LinkedIn.
+8. Keep it concise and student-friendly.
 
-Respond with only a JSON object in this exact shape:
+Return ONLY valid JSON in this shape:
 {
-  "aiSummary": "2-3 sentence explanation of what the rule-based result means",
-  "verificationChecklist": ["short actionable verification step", "..."],
-  "finalAdvice": "1-2 sentence closing recommendation consistent with the rule-based verdict"
+  "aiSummary": "2-3 sentence explanation",
+  "verificationChecklist": ["step 1", "step 2", "step 3"],
+  "finalAdvice": "1-2 sentence recommendation"
 }`;
 
-const NOT_CONFIGURED_MESSAGE =
-  "AI review is not configured yet. The rule-based analysis above is still available and works offline.";
-
-module.exports = async function handler(req, res) {
+module.exports = async (req, res) => {
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    res.status(405).json({ configured: false, message: "Method not allowed. Use POST." });
-    return;
+    return res.status(405).json({
+      configured: false,
+      message: "Method not allowed. Use POST.",
+    });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    res.status(200).json({
+    return res.status(200).json({
       configured: false,
-      message: NOT_CONFIGURED_MESSAGE,
+      message:
+        "AI review is not configured yet. The rule-based analysis above is still available and works offline.",
     });
-    return;
   }
 
-  const body = parseBody(req.body);
+  let body = req.body;
+
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = {};
+    }
+  }
+
   const emailText = typeof body.emailText === "string" ? body.emailText : "";
-  const ruleResult = body.ruleResult && typeof body.ruleResult === "object" ? body.ruleResult : {};
+  const ruleResult = body.ruleResult || {};
 
   if (!emailText.trim()) {
-    res.status(400).json({ configured: true, error: "Missing emailText." });
-    return;
+    return res.status(400).json({
+      configured: true,
+      error: "Missing emailText.",
+    });
   }
 
-  try {
-    const apiBaseUrl = (process.env.AI_API_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
-    const response = await fetch(`${apiBaseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+  const userPrompt = JSON.stringify(
+    {
+      emailText,
+      ruleBasedResult: {
+        score: ruleResult.score,
+        verdict: ruleResult.verdict,
+        redFlags: ruleResult.flags || [],
+        trustSignals: ruleResult.trustSignals || [],
+        riskCategoriesTriggered: ruleResult.hitCategories || [],
       },
-      body: JSON.stringify({
-        model: process.env.AI_MODEL || "gpt-4o-mini",
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: JSON.stringify(
-              {
-                emailText,
-                ruleBasedResult: {
-                  score: ruleResult.score,
-                  verdict: ruleResult.verdict,
-                  redFlags: Array.isArray(ruleResult.flags) ? ruleResult.flags : [],
-                  trustSignals: Array.isArray(ruleResult.trustSignals) ? ruleResult.trustSignals : [],
-                  riskCategoriesTriggered: Array.isArray(ruleResult.hitCategories) ? ruleResult.hitCategories : [],
-                },
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      }),
-    });
+    },
+    null,
+    2
+  );
 
-    if (!response.ok) {
-      res.status(200).json({ configured: true, error: "AI request failed." });
-      return;
+  try {
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `${SYSTEM_PROMPT}\n\nAnalyze this structured email risk report and return only JSON:\n\n${userPrompt}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            responseMimeType: "application/json",
+          },
+        }),
+      }
+    );
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+
+      console.error(
+        "Gemini API error:",
+        geminiResponse.status,
+        errorText.slice(0, 700)
+      );
+
+      return res.status(200).json({
+        configured: true,
+        error: `Gemini request failed with status ${geminiResponse.status}. Check Vercel Function Logs.`,
+      });
     }
 
-    const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content || "";
-    const parsed = parseJson(content);
+    const data = await geminiResponse.json();
+    const content =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    let parsed;
+
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      parsed = null;
+    }
 
     if (!parsed) {
-      res.status(200).json({ configured: true, error: "AI returned an unexpected response." });
-      return;
+      return res.status(200).json({
+        configured: true,
+        error: "Gemini returned an unexpected response.",
+      });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       configured: true,
       aiSummary: typeof parsed.aiSummary === "string" ? parsed.aiSummary : "",
-      verificationChecklist: Array.isArray(parsed.verificationChecklist) ? parsed.verificationChecklist : [],
-      finalAdvice: typeof parsed.finalAdvice === "string" ? parsed.finalAdvice : "",
+      verificationChecklist: Array.isArray(parsed.verificationChecklist)
+        ? parsed.verificationChecklist
+        : [],
+      finalAdvice:
+        typeof parsed.finalAdvice === "string" ? parsed.finalAdvice : "",
     });
-  } catch (error) {
-    res.status(200).json({ configured: true, error: "AI request failed." });
+  } catch (err) {
+    console.error("Gemini function error:", err);
+
+    return res.status(200).json({
+      configured: true,
+      error: "Gemini request failed. Check Vercel Function Logs.",
+    });
   }
 };
-
-function parseBody(body) {
-  if (!body) return {};
-  if (typeof body === "object") return body;
-  if (typeof body !== "string") return {};
-  return parseJson(body) || {};
-}
-
-function parseJson(value) {
-  try {
-    return JSON.parse(value);
-  } catch (error) {
-    return null;
-  }
-}
